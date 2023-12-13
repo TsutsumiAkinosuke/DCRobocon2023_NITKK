@@ -11,8 +11,8 @@
 
 #include <Wire.h>
 
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BNO055.h>
+// #include <Adafruit_Sensor.h>
+// #include <Adafruit_BNO055.h>
 
 #include <MD.h>
 #include <MDC.h>  // Wire -> Wire1に変更
@@ -30,8 +30,14 @@ rcl_node_t node;
 // LimitSwitchメッセージ送信用のpublisher
 rcl_publisher_t ls_publisher;
 
+// RobotInfoメッセージ送信用のpublisher
+rcl_publisher_t info_publisher;
+
 // RobotCommandメッセージ受信用のsubscriber
 rcl_subscription_t cmd_subscriber;
+
+// タイマー
+rcl_timer_t timer;
 
 // メッセージ型をインクルードして宣言
 #include <custom_interfaces/msg/robot_command.h>
@@ -43,8 +49,8 @@ custom_interfaces__msg__RobotInfo info_msg;
 #include <custom_interfaces/msg/limit_switch.h>
 custom_interfaces__msg__LimitSwitch ls_msg;
 
-#include <STM32TimerInterrupt.h>
-STM32Timer ITimer10(TIM10);
+//#include <STM32TimerInterrupt.h>
+//STM32Timer ITimer10(TIM10);
 
 // #define NUM_LEDS 5
 
@@ -127,11 +133,6 @@ void ls_check(void)
     }
   }
 
-  // for(int i = 0; i < 10; i++) {
-  //   Serial.print(ls_state[i]);
-  // }
-  // Serial.println();
-
   // もし状態の変わったリミットスイッチが1つ以上あれば
   if(ls_cnt > 0){
 
@@ -140,7 +141,7 @@ void ls_check(void)
       ls_msg.ls[i] = ls_state[i];
     }
 
-    // lsメッセージをパブリッシュする
+    // LimitSwitchメッセージをパブリッシュ
     rcl_publish(&ls_publisher, &ls_msg, NULL);
   }
 }
@@ -172,69 +173,69 @@ void crawler_control(void)
 
 /* ----------------------------------------------------------- */
 
-#define ROLL  0
-#define PITCH 1
-#define YAW   2
+// #define ROLL  0
+// #define PITCH 1
+// #define YAW   2
 
-// BNO055のインスタンス
-Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire1);
+// // BNO055のインスタンス
+// Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire1);
 
-// BNO055を認識しているかどうか
-bool bno_is_found = false;
+// // BNO055を認識しているかどうか
+// bool bno_is_found = false;
 
-// ロボットの初期角度
-double init_degree[3] = {0.0};
+// // ロボットの初期角度
+// double init_degree[3] = {0.0};
 
-// ロボットの角度
-double degree[3] = {0.0};
+// // ロボットの角度
+// double degree[3] = {0.0};
 
-//BNO055のセットアップ
-void setup_bno055(void)
-{
-  // 念のため遅延
-  delay(100);
+// //BNO055のセットアップ
+// void setup_bno055(void)
+// {
+//   // 念のため遅延
+//   delay(100);
 
-  // BNO055のセットアップを実行
-  bno_is_found = bno.begin();
+//   // BNO055のセットアップを実行
+//   bno_is_found = bno.begin();
 
-  // BNO055が見つかったなら
-  if(bno_is_found) {
+//   // BNO055が見つかったなら
+//   if(bno_is_found) {
 
-    // 念のため遅延
-    delay(100);
+//     // 念のため遅延
+//     delay(100);
 
-    // 初期角度を取得
-    imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    init_degree[ROLL] = gyro_vec.z();
-    init_degree[PITCH] = gyro_vec.y();
+//     // 初期角度を取得
+//     imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+//     init_degree[ROLL] = gyro_vec.z();
+//     init_degree[PITCH] = gyro_vec.y();
 
-    Serial.println("BNO055 is found");
+//     Serial.println("BNO055 is found");
 
-    // BNO055と通信成功したなら青色LED点灯
-    digitalWrite(PB7,HIGH);
+//     // BNO055と通信成功したなら青色LED点灯
+//     digitalWrite(PB7,HIGH);
 
-  // BNO055が見つからないなら
-  } else {
-    Serial.println("BNO055 is NOT found");
-  }
-}
+//   // BNO055が見つからないなら
+//   } else {
+//     Serial.println("BNO055 is NOT found");
+//   }
+// }
 
-void imu_control(void)
-{
-  // もしBNO055が接続されているなら
-  if (bno_is_found) {
+// void imu_control(void)
+// {
+//   // もしBNO055が接続されているなら
+//   if (bno_is_found) {
 
-    // 角度を取得
-    imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    degree[ROLL] = gyro_vec.z() - init_degree[ROLL];
-    degree[PITCH] = gyro_vec.y() - init_degree[PITCH];
-    degree[YAW] = gyro_vec.x();
+//     // 角度を取得
+//     imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+//     degree[ROLL] = gyro_vec.z() - init_degree[ROLL];
+//     degree[PITCH] = gyro_vec.y() - init_degree[PITCH];
+//     degree[YAW] = gyro_vec.x();
 
-    // pitch角とyaw角をrobot_infoメッセージに代入
-    info_msg.pitch = max(-90, min(90, int(degree[PITCH])));
-    info_msg.yaw = max(0, min(65535, int(degree[YAW] * 182)));
-  }
-}
+//     // pitch角とyaw角をrobot_infoメッセージに代入
+//     info_msg.pitch = max(-90, min(90, int(degree[PITCH])));
+//     info_msg.yaw = max(0, min(65535, int(degree[YAW] * 182)));
+//   }
+// }
 
 /* ----------------------------------------------------------- */
 
@@ -255,12 +256,12 @@ void rf_control(void)
     if (cmd_msg.mode[CMD_RF_RISE] && !ls_state[LS_RF_MAIN_TOP]) {
 
       // 昇降機構を上昇させる
-      rf_main_duty = 0.99;
+      rf_main_duty = 0.90;
     
     // 下降コマンド & 底のリミットスイッチが押されていないなら
     } else if(cmd_msg.mode[CMD_RF_FALL] && !ls_state[LS_RF_MAIN_BOTTOM]) {
       // 昇降機構を下降させる
-      rf_main_duty = -0.99;
+      rf_main_duty = -0.90;
     } else {
       // メイン昇降停止
       rf_main_duty = 0.0;
@@ -296,10 +297,8 @@ void rf_control(void)
   }
 
   // メイン・サブの昇降機構を駆動
-  //mdc.move(mdc_addr[MDC_RF_MAIN], rf_main_duty);
+  mdc.move(mdc_addr[MDC_RF_MAIN], rf_main_duty);
   mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
-
-  //Serial.println(rf_sub_duty);
 }
 
 /* ----------------------------------------------------------- */
@@ -324,39 +323,27 @@ double elecas_back_duty = 0.0;
 void elecas_control(void)
 {
   // エレキャスの伸びている距離を計算
-  elecas_length_forward = mdc.angle(MDC_JACK_FORWARD) * ELECAS_RADIUS;
-  elecas_length_back = mdc.angle(MDC_JACK_BACK) * ELECAS_RADIUS;
+  //elecas_length_forward = mdc.angle(MDC_JACK_FORWARD) * ELECAS_RADIUS;
+  //elecas_length_back = mdc.angle(MDC_JACK_BACK) * ELECAS_RADIUS;
 
-  // 前方のエレキャスが展開モード・後方のエレキャスが格納モードなら
-  if (cmd_msg.mode[CMD_ELECAS_FORWARD] == true && cmd_msg.mode[CMD_ELECAS_BACK] == false) {
-
-    // 後方のエレキャスがリミットスイッチに触れていないなら
-    if (ls_state[LS_ELECAS_BACK_TOP] == false) {
-      // 前方のエレキャスは停止・後方のエレキャスは格納
-      elecas_forward_duty = 0.0;
-      elecas_back_duty = -0.3;
-    // 後方のエレキャスがリミットスイッチに触れているなら(格納しきっているなら)
-    } else {
-      // 前方のエレキャスはP制御・後方のエレキャスは停止
-      elecas_forward_duty = (ELECAS_TARGET_ANGLE - degree[PITCH]) * ELECAS_GAIN;
-      elecas_back_duty = 0.0;
-    }
-  
-  // 前方のエレキャスが格納モード・後方のエレキャスが展開モードなら
-  } else if (cmd_msg.mode[CMD_ELECAS_FORWARD] == false && cmd_msg.mode[CMD_ELECAS_BACK] == true) {
-
-    // 前方のエレキャスがリミットスイッチに触れていないなら
-    if (ls_state[LS_ELECAS_FORWARD_TOP] == false) {
-      // 前方のエレキャスは停止・後方のエレキャスは格納
-      elecas_forward_duty = -0.3;
-      elecas_back_duty = 0.0;
-    // 前方のエレキャスがリミットスイッチに触れているなら(格納しきっているなら)
-    } else {
-      // 前方のエレキャスは停止・後方のエレキャスはP制御
-      elecas_forward_duty = 0.0;
-      elecas_back_duty = (ELECAS_TARGET_ANGLE - degree[PITCH]) * ELECAS_GAIN;
-    }
+  // 前方エレキャスが展開モードなら
+  if (cmd_msg.mode[CMD_ELECAS_FORWARD] == true) {
+    elecas_forward_duty = !ls_state[LS_ELECAS_FORWARD_BOTTOM] * 0.45;
+  // 前方エレキャスが格納モードなら
+  } else {
+    elecas_forward_duty = !ls_state[LS_ELECAS_FORWARD_TOP] * -0.15;
   }
+
+  // 後方エレキャスが展開モードなら
+  if (cmd_msg.mode[CMD_ELECAS_BACK] == true) {
+    elecas_back_duty = !ls_state[LS_ELECAS_BACK_BOTTOM] * 0.45;
+  // 後方エレキャスが格納モードなら
+  } else {
+    elecas_back_duty = !ls_state[LS_ELECAS_BACK_TOP] * -0.15;
+  }
+
+  mdc.move(mdc_addr[MDC_JACK_FORWARD], elecas_forward_duty);
+  mdc.move(mdc_addr[MDC_JACK_BACK], elecas_back_duty);
 }
 
 /* ----------------------------------------------------------- */
@@ -531,6 +518,8 @@ void decon_auto(void)
 
             }
             mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
+            break;
+
     case 7: // モーターを停止
     default:
             rf_sub_duty = 0.0;
@@ -543,31 +532,6 @@ void decon_auto(void)
 // 除染機構を制御
 void decon_control(void)
 {
-  // 左端のリミットスイッチが押されたら
-  // if (ls_state[LS_DECON_LEFT] == true) {
-
-  //   // 横座標を初期化
-  //   decon_x = 0;
-
-  //   // フラグを立てる
-  //   decon_init_flag = true;
-
-  //   // 1ステップ前にリミットスイッチが押されていなければ
-  //   if (pre_ls_state[LS_DECON_LEFT] == false) {
-  //     // MDCのエンコーダ値をリセット
-  //     mdc.reset_encoder(MDC_DECON);
-  //     delay(5);
-  //   }
-
-  // // 横座標のゼロ点がとられていたら
-  // } else if(decon_init_flag == true) {
-
-  //   // 除染機構の横座標を計算
-  //   decon_x = mdc.angle(MDC_DECON) * DECON_RADIUS;
-  //   delay(5);
-
-  // }
-
   // 除染機構が手動モードなら
   if (cmd_msg.mode[CMD_DECON_AUTO] == false) {
 
@@ -596,16 +560,15 @@ int16_t cable_length = 0;
 void cable_control(void)
 {
   // 排出しているケーブルの長さを計算
-  cable_length = int(mdc.angle(mdc_addr[MDC_CABLE]) * REEL_RADIUS / 10.0);
+  cable_length = int(mdc.angle(mdc_addr[MDC_CABLE]) * REEL_RADIUS / -10.0 / 2);
   info_msg.cable_length = cable_length;
+  //Serial.println(info_msg.cable_length);
 
   // ケーブル巻取り・排出のモータのDuty比を計算
-  cable_duty = (cmd_msg.mode[CMD_CABLE_WIND] - cmd_msg.mode[CMD_CABLE_RELEASE]) * 0.3;
-
-  Serial.println(cable_duty);
+  cable_duty = cmd_msg.mode[CMD_CABLE_RELEASE] * 0.5 + cmd_msg.mode[CMD_CABLE_WIND] * -0.7;
 
   // ケーブル巻取り・排出のモーターを回転
-  mdc.move(0x10, cable_duty);
+  mdc.move(mdc_addr[MDC_CABLE], cable_duty);
 }
 
 /* ----------------------------------------------------------- */
@@ -635,6 +598,12 @@ void duty_reset(void)
   decon_x_duty = 0.0;
   elecas_forward_duty = 0.0;
   elecas_back_duty = 0.0;
+
+  for(int i = 0; i < 10; i++) {
+    cmd_msg.mode[i] = false;
+  }
+  cmd_msg.value[0] = 0;
+  cmd_msg.value[1] = 0;
 }
 
 /* ----------------------------------------------------------- */
@@ -642,26 +611,26 @@ void duty_reset(void)
 int interrupt_count = 0;
 
 // タイマー割り込みで実行する関数
-void timer_interrupt(void)
+void timer_interrupt(rcl_timer_t *timer, int64_t last_call_time)
 {
+
+  RCLC_UNUSED(last_call_time);
 
   // 割り込み回数を加算
   interrupt_count += 1;
 
-  // 割り込み2回に1回・最後にcmdメッセージを受信してから100ms以内なら
-  if (interrupt_count % 2 == 0 && millis() - s_time < 100) {
-    imu_control();
+  // 割り込み4回に1回
+  if (interrupt_count % 4 == 0) {
+    //imu_control();
     crawler_control();
     decon_control();
     elecas_control();
     cable_control();
-    //rf_control();
   }
 
-  // 割り込み10回に1回
-  if (interrupt_count % 10 == 0) {
-    // すべてのDuty比をリセット
-    duty_reset();
+  if (interrupt_count  == 52) {
+    // RobotInfoメッセージをパブリッシュ
+    rcl_publish(&info_publisher, &info_msg, NULL);
     interrupt_count = 0;
   }
 }
@@ -701,21 +670,26 @@ void setup()
   // 引数は nodeの構造体, nodeの名前(分かりやすい名前でOK), 名前空間, サポートの構造体
   RCCHECK(rclc_node_init_default(&node, "robot_node", "", &support));
 
-  RCCHECK(rclc_publisher_init_best_effort(&ls_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, LimitSwitch), "ls"))
+  RCCHECK(rclc_publisher_init_default(&ls_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, LimitSwitch), "ls"));
+  RCCHECK(rclc_publisher_init_default(&info_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, RobotInfo), "info"));
 
   // subscriptionを作成
   // #引数は subscriptionの構造体, nodeの構造体, *メッセージサポート(型を合わせる必要あり), *topicの名前
   RCCHECK(rclc_subscription_init_default(&cmd_subscriber, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, RobotCommand), "cmd"));
 
+  rclc_timer_init_default(&timer, &support, RCL_MS_TO_NS(10), timer_interrupt);
+
   // executorを作成
   // 引数は executorの構造体, サポートのコンテクスト, *ハンドル数(必要に応じて数を変える必要あり), allocator
   // ハンドル数：マイコンで処理するtopic, service, timerなどのコールバックの数
   executor = rclc_executor_get_zero_initialized_executor();
-  RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
+  RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
 
   // executorにsubscriptionを追加(すべてのsubscriptionについて実行する必要あり)
   // 引数は executor, subscription, メッセージの変数, コールバック関数, オプション
-  RCCHECK(rclc_executor_add_subscription(&executor, &cmd_subscriber, &cmd_msg, &cmd_callback, ON_NEW_DATA));
+  RCCHECK(rclc_executor_add_subscription(&executor, &cmd_subscriber, &cmd_msg, &cmd_callback, ON_NEW_DATA));  
+
+  rclc_executor_add_timer(&executor, &timer);
 
   for(int i = 0; i < NUM_LS; i++)
   {
@@ -723,11 +697,11 @@ void setup()
       delay(1);
   }
 
-  if(ITimer10.attachInterruptInterval(10*1000, timer_interrupt)){  //us,callback
-    Serial.println("Start Timer Interrupt");
-  }else{
-    Serial.println("Failed to setup Timer Interrupt");
-  }
+  // if(ITimer10.attachInterruptInterval(10*1000, timer_interrupt)){  //us,callback
+  //   Serial.println("Start Timer Interrupt");
+  // }else{
+  //   Serial.println("Failed to setup Timer Interrupt");
+  // }
 
   // setup関数を抜けるときに赤色LED点灯
   digitalWrite(PB14, HIGH);
@@ -738,6 +712,10 @@ void loop()
 
   // リミットスイッチの状態チェック・更新
   ls_check();
+
+  if (millis() - s_time > 100) {
+    duty_reset();
+  }
 
   // 10ms待機
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
