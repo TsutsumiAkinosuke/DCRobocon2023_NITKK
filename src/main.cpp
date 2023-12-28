@@ -11,8 +11,8 @@
 
 #include <Wire.h>
 
-// #include <Adafruit_Sensor.h>
-// #include <Adafruit_BNO055.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
 
 #include <MD.h>
 #include <MDC.h>  // Wire -> Wire1に変更
@@ -106,9 +106,9 @@ int mdc_addr[NUM_MDC] = {0x10, 0x11, 0x12, 0x13, 0x14, 0x15};
 #define LS_RF_MAIN_TOP             4
 #define LS_RF_MAIN_BOTTOM          5
 #define LS_RF_SUB_TOP              6
-#define LS_RF_SUB_BOTTOM           7
+#define LS_RF_SUB_BOTTOM           7  //
 #define LS_DECON_LEFT              8
-#define LS_DECON_RIGHT             9
+#define LS_DECON_RIGHT             9  //
 
 int ls_pin[NUM_LS] = {PD12,PD11,PA0,PE0,PB10,PE15,PE14,PE12,PE10,PE7};
 bool ls_state[NUM_LS] = {true};
@@ -173,69 +173,70 @@ void crawler_control(void)
 
 /* ----------------------------------------------------------- */
 
-// #define ROLL  0
-// #define PITCH 1
-// #define YAW   2
+#define ROLL  0
+#define PITCH 1
+#define YAW   2
 
-// // BNO055のインスタンス
-// Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire1);
+// BNO055のインスタンス
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire1);
 
-// // BNO055を認識しているかどうか
-// bool bno_is_found = false;
+// BNO055を認識しているかどうか
+bool bno_is_found = false;
 
-// // ロボットの初期角度
-// double init_degree[3] = {0.0};
+// ロボットの初期角度
+double init_degree[3] = {0.0};
 
-// // ロボットの角度
-// double degree[3] = {0.0};
+// ロボットの角度
+double degree[3] = {0.0};
 
-// //BNO055のセットアップ
-// void setup_bno055(void)
-// {
-//   // 念のため遅延
-//   delay(100);
+//BNO055のセットアップ
+void setup_bno055(void)
+{
+  // 念のため遅延
+  delay(100);
 
-//   // BNO055のセットアップを実行
-//   bno_is_found = bno.begin();
+  // BNO055のセットアップを実行
+  bno_is_found = bno.begin();
 
-//   // BNO055が見つかったなら
-//   if(bno_is_found) {
+  // BNO055が見つかったなら
+  if(bno_is_found) {
 
-//     // 念のため遅延
-//     delay(100);
+    // 念のため遅延
+    delay(100);
 
-//     // 初期角度を取得
-//     imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-//     init_degree[ROLL] = gyro_vec.z();
-//     init_degree[PITCH] = gyro_vec.y();
+    // 初期角度を取得
+    imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    init_degree[ROLL] = gyro_vec.z();
+    init_degree[PITCH] = gyro_vec.y();
 
-//     Serial.println("BNO055 is found");
+    Serial.println("BNO055 is found");
 
-//     // BNO055と通信成功したなら青色LED点灯
-//     digitalWrite(PB7,HIGH);
+    // BNO055と通信成功したなら青色LED点灯
+    digitalWrite(PB7,HIGH);
 
-//   // BNO055が見つからないなら
-//   } else {
-//     Serial.println("BNO055 is NOT found");
-//   }
-// }
+  // BNO055が見つからないなら
+  } else {
+    Serial.println("BNO055 is NOT found");
+  }
+}
 
-// void imu_control(void)
-// {
-//   // もしBNO055が接続されているなら
-//   if (bno_is_found) {
+void imu_control(void)
+{
+  // もしBNO055が接続されているなら
+  if (bno_is_found) {
 
-//     // 角度を取得
-//     imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-//     degree[ROLL] = gyro_vec.z() - init_degree[ROLL];
-//     degree[PITCH] = gyro_vec.y() - init_degree[PITCH];
-//     degree[YAW] = gyro_vec.x();
+    // 角度を取得
+    imu::Vector<3> gyro_vec = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    degree[ROLL] = gyro_vec.z() - init_degree[ROLL];
+    degree[PITCH] = gyro_vec.y() - init_degree[PITCH];
+    degree[YAW] = gyro_vec.x();
 
-//     // pitch角とyaw角をrobot_infoメッセージに代入
-//     info_msg.pitch = max(-90, min(90, int(degree[PITCH])));
-//     info_msg.yaw = max(0, min(65535, int(degree[YAW] * 182)));
-//   }
-// }
+    // pitch角とyaw角をrobot_infoメッセージに代入
+    info_msg.pitch = max(-90, min(90, int(degree[PITCH])));
+    //info_msg.yaw = max(0, min(65535, int(degree[YAW] * 182)));
+    info_msg.yaw = max(0, min(65535, int(degree[YAW] * 100)));
+  }
+}
 
 /* ----------------------------------------------------------- */
 
@@ -261,7 +262,7 @@ void rf_control(void)
     // 下降コマンド & 底のリミットスイッチが押されていないなら
     } else if(cmd_msg.mode[CMD_RF_FALL] && !ls_state[LS_RF_MAIN_BOTTOM]) {
       // 昇降機構を下降させる
-      rf_main_duty = -0.90;
+      rf_main_duty = -0.7;
     } else {
       // メイン昇降停止
       rf_main_duty = 0.0;
@@ -282,7 +283,7 @@ void rf_control(void)
     } else if(cmd_msg.mode[CMD_RF_FALL] && !ls_state[LS_RF_SUB_BOTTOM]) {
 
       // 昇降機構を下降させる
-      rf_sub_duty = 0.99;
+      rf_sub_duty = 0.7;
 
     } else {
 
@@ -306,12 +307,6 @@ void rf_control(void)
 // エレキャスワイヤのリールの半径
 #define ELECAS_RADIUS 22.28169
 
-// エレキャスの目標角度(水平ならゼロ)
-#define ELECAS_TARGET_ANGLE 0.0
-
-// エレキャスのPゲイン
-#define ELECAS_GAIN 0.001
-
 // エレキャスの現在の長さ
 double elecas_length_back = 0.0, elecas_length_forward = 0.0;
 
@@ -331,7 +326,7 @@ void elecas_control(void)
     elecas_forward_duty = !ls_state[LS_ELECAS_FORWARD_BOTTOM] * 0.45;
   // 前方エレキャスが格納モードなら
   } else {
-    elecas_forward_duty = !ls_state[LS_ELECAS_FORWARD_TOP] * -0.15;
+    elecas_forward_duty = !ls_state[LS_ELECAS_FORWARD_TOP] * -0.25;
   }
 
   // 後方エレキャスが展開モードなら
@@ -339,7 +334,7 @@ void elecas_control(void)
     elecas_back_duty = !ls_state[LS_ELECAS_BACK_BOTTOM] * 0.45;
   // 後方エレキャスが格納モードなら
   } else {
-    elecas_back_duty = !ls_state[LS_ELECAS_BACK_TOP] * -0.15;
+    elecas_back_duty = !ls_state[LS_ELECAS_BACK_TOP] * -0.25;
   }
 
   mdc.move(mdc_addr[MDC_JACK_FORWARD], elecas_forward_duty);
@@ -397,25 +392,29 @@ void decon_manual(void)
   mdc.move(mdc_addr[MDC_DECON], decon_x_duty);
 }
 
+#define AUTO_DECON_FALL_MSEC 140
+#define AUTO_DECON_RISE_MSEC  50
+
 // 
 unsigned long d_time = millis();
 
 // 除染機構を自動制御
 void decon_auto(void)
 {
+  // サブ昇降底のリミットスイッチが押されたらシーケンスを6までとばす
+  if (ls_state[LS_RF_SUB_BOTTOM] == true) {
+    decon_auto_sequence = 8;
+  }
+
   switch(decon_auto_sequence) {
 
     case 0: // サブ昇降の頂のリミットスイッチが押されるまでサブ昇降を上昇
             if (ls_state[LS_RF_SUB_TOP] == false) {
-
               rf_sub_duty = -0.5;
-
             } else {
-
               rf_sub_duty = 0.0;
               decon_count = 0;
               decon_auto_sequence = 1;
-
             }
             mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
 
@@ -426,101 +425,99 @@ void decon_auto(void)
 
     case 1: // 除染機構の左のリミットスイッチが押されるまで除染機構を左に移動
             if (ls_state[LS_DECON_LEFT] == false) {
-
               decon_x_duty = -0.9;
-
             } else {
-
               decon_x_duty = 0.0;
               decon_auto_sequence = 2;
-
             }
             mdc.move(mdc_addr[MDC_DECON], decon_x_duty);
             break;
 
     case 2: // 右のリミットスイッチが押されるまで除染機構を右に移動
             if (ls_state[LS_DECON_RIGHT] == false) {
-
-              decon_x_duty = 0.99;
-
+              decon_x_duty = 0.9;
             } else {
-
               decon_x_duty = 0.0;
               d_time = millis();
               decon_auto_sequence = 3;
-
             }
             mdc.move(mdc_addr[MDC_DECON], decon_x_duty);
             break;
 
-    case 3: // 250msだけ下に下げる
-            if (millis() - d_time < 100) {
-
-              rf_sub_duty = 0.25;
-
+    case 3: // 指定時間だけ下に下げる
+            if (millis() - d_time < AUTO_DECON_FALL_MSEC) {
+              rf_sub_duty = 0.3;
             } else {
-
               rf_sub_duty = 0.0;
+              d_time = millis();
               decon_auto_sequence = 4;
-
             }
             mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
             break;
     
-    case 4: // 左のリミットスイッチが押されるまで除染機構を左に移動
-            if (ls_state[LS_DECON_LEFT] == false) {
-
-              decon_x_duty = -0.99;
-
+    case 4: // 指定時間だけ上に上げる
+            if (millis() - d_time < AUTO_DECON_RISE_MSEC) {
+              rf_sub_duty = -0.2;
             } else {
-
+              rf_sub_duty = 0.0;
+              decon_auto_sequence = 5;
+            }
+            mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
+            break;
+    
+    case 5: // 左のリミットスイッチが押されるまで除染機構を左に移動
+            if (ls_state[LS_DECON_LEFT] == false) {
+              decon_x_duty = -0.9;
+            } else {
               decon_x_duty = 0.0;
               d_time = millis();
-              decon_auto_sequence = 5;
-
+              decon_auto_sequence = 6;
             }
             mdc.move(mdc_addr[MDC_DECON], decon_x_duty);
             break;
     
-    case 5: // 250msだけ下に下げる
-            if (millis() - d_time < 100) {
-
-              rf_sub_duty = 0.25;
-
+    case 6: // 指定時間だけ下に下げる
+            if (millis() - d_time < AUTO_DECON_FALL_MSEC) {
+              rf_sub_duty = 0.3;
             } else {
-
               rf_sub_duty = 0.0;
-
+              d_time = millis();
+              decon_auto_sequence = 7;              
+            }
+            mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
+            break;
+    
+    case 7: // 指定時間だけ上に上げる
+            if (millis() - d_time < AUTO_DECON_RISE_MSEC) {
+              rf_sub_duty = -0.2;
+            } else {
+              rf_sub_duty = 0.0;
               decon_count += 1;
-
               // 往復回数が15回未満なら
               if (decon_count < 15) {
                 decon_auto_sequence = 2;
-
               // 往復回数が15回に達したら
               } else {
-                decon_auto_sequence = 6;
+                decon_auto_sequence = 8;
               }
             }
             mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
             break;
 
-    case 6: // サブ昇降の頂のリミットスイッチが押されるまでサブ昇降を上昇
+    case 8: // サブ昇降の頂のリミットスイッチが押されるまでサブ昇降を上昇
             if (ls_state[LS_RF_SUB_TOP] == false) {
-
               rf_sub_duty = -0.5;
-
+              decon_x_duty = 0.0;
             } else {
-
               rf_sub_duty = 0.0;
               decon_count = 0;
-              decon_auto_sequence = 7;
-
+              decon_auto_sequence = 9;
             }
             mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
+            mdc.move(mdc_addr[MDC_DECON], decon_x_duty);
             break;
 
-    case 7: // モーターを停止
+    case 9: // モーターを停止
     default:
             rf_sub_duty = 0.0;
             mdc.move(mdc_addr[MDC_RF_SUB], rf_sub_duty);
@@ -548,7 +545,7 @@ void decon_control(void)
 /* ----------------------------------------------------------- */
 
 // LANケーブル用リールの仮想半径
-#define REEL_RADIUS 45
+#define REEL_RADIUS 40.5
 
 // ケーブル巻取り・排出モーターのDuty比
 double cable_duty = 0.0;
@@ -565,7 +562,7 @@ void cable_control(void)
   //Serial.println(info_msg.cable_length);
 
   // ケーブル巻取り・排出のモータのDuty比を計算
-  cable_duty = cmd_msg.mode[CMD_CABLE_RELEASE] * 0.5 + cmd_msg.mode[CMD_CABLE_WIND] * -0.7;
+  cable_duty = cmd_msg.mode[CMD_CABLE_RELEASE] * 0.4 + cmd_msg.mode[CMD_CABLE_WIND] * -0.4;
 
   // ケーブル巻取り・排出のモーターを回転
   mdc.move(mdc_addr[MDC_CABLE], cable_duty);
@@ -619,16 +616,17 @@ void timer_interrupt(rcl_timer_t *timer, int64_t last_call_time)
   // 割り込み回数を加算
   interrupt_count += 1;
 
-  // 割り込み4回に1回
-  if (interrupt_count % 4 == 0) {
-    //imu_control();
+  // 割り込み2回に1回
+  if (interrupt_count % 2 == 0) {
+    imu_control();
     crawler_control();
     decon_control();
     elecas_control();
     cable_control();
   }
 
-  if (interrupt_count  == 52) {
+  // 割り込み50回に1回
+  if (interrupt_count % 50 == 0) {
     // RobotInfoメッセージをパブリッシュ
     rcl_publish(&info_publisher, &info_msg, NULL);
     interrupt_count = 0;
@@ -659,6 +657,9 @@ void setup()
   // セットアップが完了するまで少しの間待機
   delay(2000);
 
+  // BNO055のセットアップ
+  setup_bno055();
+
   // allocatorを宣言
   allocator = rcl_get_default_allocator();
 
@@ -670,8 +671,8 @@ void setup()
   // 引数は nodeの構造体, nodeの名前(分かりやすい名前でOK), 名前空間, サポートの構造体
   RCCHECK(rclc_node_init_default(&node, "robot_node", "", &support));
 
-  RCCHECK(rclc_publisher_init_default(&ls_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, LimitSwitch), "ls"));
-  RCCHECK(rclc_publisher_init_default(&info_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, RobotInfo), "info"));
+  RCCHECK(rclc_publisher_init_best_effort(&ls_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, LimitSwitch), "ls"));
+  RCCHECK(rclc_publisher_init_best_effort(&info_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, RobotInfo), "info"));
 
   // subscriptionを作成
   // #引数は subscriptionの構造体, nodeの構造体, *メッセージサポート(型を合わせる必要あり), *topicの名前
@@ -696,12 +697,6 @@ void setup()
       pinMode(ls_pin[i], INPUT_PULLUP);
       delay(1);
   }
-
-  // if(ITimer10.attachInterruptInterval(10*1000, timer_interrupt)){  //us,callback
-  //   Serial.println("Start Timer Interrupt");
-  // }else{
-  //   Serial.println("Failed to setup Timer Interrupt");
-  // }
 
   // setup関数を抜けるときに赤色LED点灯
   digitalWrite(PB14, HIGH);
