@@ -49,20 +49,6 @@ custom_interfaces__msg__RobotInfo info_msg;
 #include <custom_interfaces/msg/limit_switch.h>
 custom_interfaces__msg__LimitSwitch ls_msg;
 
-//#include <STM32TimerInterrupt.h>
-//STM32Timer ITimer10(TIM10);
-
-// #define NUM_LEDS 5
-
-// int leds[NUM_LEDS] = {PB1, PC2, PF4, PB6, PB2, PD13, PD12, PD11, PE2, PA0, PB0, PE0};
-// int leds[NUM_LEDS] = {PF13, PE9, PE11, PF14, PE13, PF15, PG14, PG9, PE8, PE7, PE10, PE12, PE14, PE15, PB10, PB11};
-// int leds[NUM_LEDS] = {PB8, PB9, PA5, PA6, PA7, PD14, PD15, PF12};
-// int leds[NUM_LEDS] = {PC6, PB15, PB13, PB12, PA15, PC7, PB5, PB3, PA4, PB4};
-// int leds[NUM_LEDS] = {PC8, PC9, PC10, PC11, PC12, PD2, PG2, PG3};
-// int leds[NUM_LEDS] = {PA3, PC0, PC3, PF3, PF5, PF10, PA7, PF2, PF1, PF0, PD0, PD1, PG0};
-// int leds[NUM_LEDS] = {PD7, PD6, PD5, PD4, PD3};
-// int leds[NUM_LEDS] = {PE2, PE4, PE5, PE6, PE3, PF8, PF7, PF9, PG1};
-
 // cmdメッセージ用添字マクロ
 #define CMD_ELECAS_FORWARD  0
 #define CMD_ELECAS_BACK     1
@@ -343,12 +329,6 @@ void elecas_control(void)
 
 /* ----------------------------------------------------------- */
 
-// 除染機構の横座標
-int decon_x = 0;
-
-// 除染機構のゼロ点をとったことを示すフラグ
-bool decon_init_flag = false;
-
 // 除染機構横のモーターのDuty比
 double decon_x_duty = 0.0;
 
@@ -401,7 +381,7 @@ unsigned long d_time = millis();
 // 除染機構を自動制御
 void decon_auto(void)
 {
-  // サブ昇降底のリミットスイッチが押されたらシーケンスを6までとばす
+  // サブ昇降底のリミットスイッチが押されたらシーケンスを8までとばす
   if (ls_state[LS_RF_SUB_BOTTOM] == true) {
     decon_auto_sequence = 8;
   }
@@ -559,7 +539,6 @@ void cable_control(void)
   // 排出しているケーブルの長さを計算
   cable_length = int(mdc.angle(mdc_addr[MDC_CABLE]) * REEL_RADIUS / -10.0 / 2);
   info_msg.cable_length = cable_length;
-  //Serial.println(info_msg.cable_length);
 
   // ケーブル巻取り・排出のモータのDuty比を計算
   cable_duty = cmd_msg.mode[CMD_CABLE_RELEASE] * 0.4 + cmd_msg.mode[CMD_CABLE_WIND] * -0.4;
@@ -708,6 +687,8 @@ void loop()
   // リミットスイッチの状態チェック・更新
   ls_check();
 
+  // 最後にRobotCommandメッセージを受信してから100ms以上経過したらDuty比を0にする(エレキャスは縮める)
+  // スリップリング等の影響でPC-マイコン間通信が途絶えたときにロボットを停止させるための処理
   if (millis() - s_time > 100) {
     duty_reset();
   }
